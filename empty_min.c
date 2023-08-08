@@ -33,6 +33,9 @@
 /*
  *  ======== empty_min.c ========
  */
+/* Standard includes */
+#include <string.h>
+
 /* XDCtools Header files */
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
@@ -43,252 +46,89 @@
 
 /* TI-RTOS Header files */
 #include <ti/drivers/GPIO.h>
-// #include <ti/drivers/I2C.h>
-// #include <ti/drivers/SDSPI.h>
 #include <ti/drivers/SPI.h>
-// #include <ti/drivers/UART.h>
-// #include <ti/drivers/Watchdog.h>
-
-// Standard includes
-#include <string.h>
-
-// Driverlib includes
-#include "hw_types.h"
-#include "hw_memmap.h"
-#include "hw_common_reg.h"
-#include "hw_ints.h"
-#include "spi.h"
-#include "rom.h"
-#include "rom_map.h"
-#include "utils.h"
-#include "prcm.h"
-#include "uart.h"
-#include "interrupt.h"
-#include "hw_types.h"
-#include "hw_ints.h"
-#include "hw_memmap.h"
-#include "hw_apps_rcm.h"
-#include "hw_common_reg.h"
-#include "interrupt.h"
-#include "rom.h"
-#include "rom_map.h"
-#include "timer.h"
-#include "utils.h"
-#include "prcm.h"
-#include "gpio_if.h"
-
-// Common interface includes
-#include "pin_mux_config.h"
-#include "hal.h"
-#include "ads131m0x.h"
 
 /* Board Header files */
 #include "Board.h"
 
-//*****************************************************************************
-//
-// Application Master/Slave mode selector macro
-//
-// MASTER_MODE = 1 : Application in master mode
-// MASTER_MODE = 0 : Application in slave mode
-//
-//*****************************************************************************
-#define MASTER_MODE      1
+// Driverlib includes: Hardware Specific Headers
+#include "hw_types.h"
+#include "hw_memmap.h"
+#include "hw_common_reg.h"
+#include "hw_ints.h"
+#include "hw_apps_rcm.h"
 
+// Driverlib includes: Peripheral Libraries
+#include "spi.h"
+#include "rom.h"
+#include "rom_map.h"
+#include "timer.h"
+#include "uart.h"
+#include "interrupt.h"
+
+// Driverlib includes: Utilities
+#include "utils.h"
+#include "prcm.h"
+#include "gpio_if.h"
+
+// Interface includes
+#include "pin_mux_config.h"
+#include "hal.h"         // Important methods defined in hal.c
+#include "ads131m0x.h"   // Important methods defined in ads131m0x.c
+
+//*****************************************************************************
+//                 DEFINITIONS FOR SPI SETTINGS
+//*****************************************************************************
 #define SPI_IF_BIT_RATE  100000
 #define TR_BUFF_SIZE     100
 
-#define MASTER_MSG       "This is CC3200 SPI Master Application\n\r"
-#define SLAVE_MSG        "This is CC3200 SPI Slave Application\n\r"
-
+//*****************************************************************************
+//                 DEFINITIONS FOR PWM TIMER SETTINGS
+//*****************************************************************************
 #define TIMER_INTERVAL_RELOAD   19
 #define DUTYCYCLE_GRANULARITY   10
 
 //*****************************************************************************
-//                 GLOBAL VARIABLES -- Start
+//                 TASK SETTINGS
 //*****************************************************************************
-static unsigned char g_ucTxBuff[TR_BUFF_SIZE];
-static unsigned char g_ucRxBuff[TR_BUFF_SIZE];
-static unsigned char ucTxBuffNdx;
-static unsigned char ucRxBuffNdx;
-
 #define TASKSTACKSIZE   512
 
 Task_Struct tsk0Struct;
 UInt8 tsk0Stack[TASKSTACKSIZE];
 Task_Handle task;
 
+//*****************************************************************************
+//                 GLOBAL VARIABLES
+//*****************************************************************************
+int count = 0;
+adc_channel_data adcData;
+
+//*****************************************************************************
+//                 VECTORS (Specific for compilers)
+//*****************************************************************************
 #if defined(ccs)
 extern void (* const g_pfnVectors[])(void);
 #endif
 #if defined(ewarm)
 extern uVectorEntry __vector_table;
 #endif
-//*****************************************************************************
-//                 GLOBAL VARIABLES -- End
-//*****************************************************************************
 
 
-
-//*****************************************************************************
+//****************************************************************************
 //
-//! SPI Slave Interrupt handler
+//! Setup the timer in PWM mode
 //!
-//! This function is invoked when SPI slave has its receive register full or
-//! transmit register empty.
+//! \param ulBase is the base address of the timer to be configured
+//! \param ulTimer is the timer to be setup (TIMER_A or  TIMER_B)
+//! \param ulConfig is the timer configuration setting
+//! \param ucInvert is to select the inversion of the output
 //!
-//! \return None.
-//
-//*****************************************************************************
-static void SlaveIntHandler()
-{
-    unsigned long ulRecvData;
-    unsigned long ulStatus;
-
-    ulStatus = MAP_SPIIntStatus(GSPI_BASE,true);
-
-    MAP_SPIIntClear(GSPI_BASE,SPI_INT_RX_FULL|SPI_INT_TX_EMPTY);
-
-    if(ulStatus & SPI_INT_TX_EMPTY)
-    {
-        MAP_SPIDataPut(GSPI_BASE,g_ucTxBuff[ucTxBuffNdx%TR_BUFF_SIZE]);
-        ucTxBuffNdx++;
-    }
-
-    if(ulStatus & SPI_INT_RX_FULL)
-    {
-        MAP_SPIDataGetNonBlocking(GSPI_BASE,&ulRecvData);
-        g_ucTxBuff[ucRxBuffNdx%TR_BUFF_SIZE] = ulRecvData;
-//        Report("%c",ulRecvData);
-        ucRxBuffNdx++;
-    }
-}
-
-//*****************************************************************************
-//
-//! SPI Master mode main loop
-//!
-//! This function configures SPI modelue as master and enables the channel for
-//! communication
+//! This function
+//!    1. The specified timer is setup to operate as PWM
 //!
 //! \return None.
 //
-//*****************************************************************************
-void MasterMain()
-{
-
-    unsigned long ulUserData;
-    unsigned long ulDummy;
-
-    //
-    // Initialize the message
-    //
-    memcpy(g_ucTxBuff,MASTER_MSG,sizeof(MASTER_MSG));
-
-    //
-    // Set Tx buffer index
-    //
-    ucTxBuffNdx = 0;
-    ucRxBuffNdx = 0;
-
-    //
-    // Reset SPI
-    //
-    MAP_SPIReset(GSPI_BASE);
-
-    //
-    // Configure SPI interface
-    //
-    MAP_SPIConfigSetExpClk(GSPI_BASE,MAP_PRCMPeripheralClockGet(PRCM_GSPI),
-                     SPI_IF_BIT_RATE,SPI_MODE_MASTER,SPI_SUB_MODE_1,
-                     (SPI_SW_CTRL_CS |
-                     SPI_4PIN_MODE |
-                     SPI_TURBO_OFF |
-                     SPI_CS_ACTIVEHIGH |
-                     SPI_WL_8));
-
-    //
-    // Enable SPI for communication
-    //
-    MAP_SPIEnable(GSPI_BASE);
-
-    //
-    // Print mode on uart
-    //
-    //Message("Enabled SPI Interface in Master Mode\n\r");
-
-    //
-    // User input
-    //
-    //Report("Press any key to transmit data....");
-
-    //
-    // Read a character from UART terminal
-    //
-    ulUserData = MAP_UARTCharGet(UARTA0_BASE);
-
-
-    //
-    // Send the string to slave. Chip Select(CS) needs to be
-    // asserted at start of transfer and deasserted at the end.
-    //
-    MAP_SPITransfer(GSPI_BASE,g_ucTxBuff,g_ucRxBuff,50,
-            SPI_CS_ENABLE|SPI_CS_DISABLE);
-
-    //
-    // Report to the user
-    //
-    //Report("\n\rSend      %s",g_ucTxBuff);
-    //Report("Received  %s",g_ucRxBuff);
-
-    //
-    // Print a message
-    //
-    //Report("\n\rType here (Press enter to exit) :");
-
-    //
-    // Initialize variable
-    //
-    ulUserData = 0;
-
-    //
-    // Enable Chip select
-    //
-    MAP_SPICSEnable(GSPI_BASE);
-
-    //
-    // Loop until user "Enter Key" is
-    // pressed
-    //
-    while(ulUserData != '\r')
-    {
-        //
-        // Read a character from UART terminal
-        //
-        ulUserData = MAP_UARTCharGet(UARTA0_BASE);
-
-        //
-        // Echo it back
-        //
-        MAP_UARTCharPut(UARTA0_BASE,ulUserData);
-
-        //
-        // Push the character over SPI
-        //
-        MAP_SPIDataPut(GSPI_BASE,ulUserData);
-
-        //
-        // Clean up the receive register into a dummy
-        // variable
-        //
-        MAP_SPIDataGet(GSPI_BASE,&ulDummy);
-    }
-
-    //
-    // Disable chip select
-    //
-    MAP_SPICSDisable(GSPI_BASE);
-}
+//****************************************************************************
 
 void SetupTimerPWMMode(unsigned long ulBase, unsigned long ulTimer,
                        unsigned long ulConfig, unsigned char ucInvert)
@@ -316,6 +156,21 @@ void SetupTimerPWMMode(unsigned long ulBase, unsigned long ulTimer,
 
 }
 
+//****************************************************************************
+//
+//! Sets up the identified timers as PWM to drive the peripherals
+//!
+//! \param none
+//!
+//! This function sets up the folowing
+//!    1. TIMERA2 (TIMER B) as RED of RGB light
+//!    2. TIMERA3 (TIMER B) as YELLOW of RGB light
+//!    3. TIMERA3 (TIMER A) as GREEN of RGB light
+//!
+//! \return None.
+//
+//****************************************************************************
+
 void InitPWMModules()
 {
     //
@@ -334,63 +189,13 @@ void InitPWMModules()
 
 //*****************************************************************************
 //
-//! SPI Slave mode main loop
+//! Board Initialization & Configuration
 //!
-//! This function configures SPI modelue as slave and enables the channel for
-//! communication
+//! \param  None
 //!
-//! \return None.
+//! \return None
 //
 //*****************************************************************************
-void SlaveMain()
-{
-    //
-    // Initialize the message
-    //
-    memcpy(g_ucTxBuff,SLAVE_MSG,sizeof(SLAVE_MSG));
-
-    //
-    // Set Tx buffer index
-    //
-    ucTxBuffNdx = 0;
-    ucRxBuffNdx = 0;
-
-    //
-    // Reset SPI
-    //
-    MAP_SPIReset(GSPI_BASE);
-
-    //
-    // Configure SPI interface
-    //
-    MAP_SPIConfigSetExpClk(GSPI_BASE,MAP_PRCMPeripheralClockGet(PRCM_GSPI),
-                     SPI_IF_BIT_RATE,SPI_MODE_SLAVE,SPI_SUB_MODE_0,
-                     (SPI_HW_CTRL_CS |
-                     SPI_4PIN_MODE |
-                     SPI_TURBO_OFF |
-                     SPI_CS_ACTIVEHIGH |
-                     SPI_WL_8));
-
-    //
-    // Register Interrupt Handler
-    //
-    MAP_SPIIntRegister(GSPI_BASE,SlaveIntHandler);
-
-    //
-    // Enable Interrupts
-    //
-    MAP_SPIIntEnable(GSPI_BASE,SPI_INT_RX_FULL|SPI_INT_TX_EMPTY);
-
-    //
-    // Enable SPI for communication
-    //
-    MAP_SPIEnable(GSPI_BASE);
-
-    //
-    // Print mode on uart
-    //
-    //Message("Enabled SPI Interface in Slave Mode\n\rReceived : ");
-}
 
 static void
 BoardInit(void)
@@ -413,88 +218,93 @@ BoardInit(void)
     PRCMCC3200MCUInit();
 }
 
+//****************************************************************************
+//
+//! Executes the ADC task to process data after DRDY interrupt.
+//!
+//! \param a0 Sleep duration (in units) for the task before entering the main loop.
+//! \param a1 Not used in the current implementation.
+//!
+//! This function performs the following operations:
+//!    1. Sleeps the task for the duration specified by a0.
+//!    2. Enters a continuous loop, where it waits for a DRDY interrupt.
+//!    3. If the DRDY interrupt occurs:
+//!       a. Clears the interrupt flag.
+//!       b. Reads data from the ADC.
+//!       c. If there's a CRC error in the read data, it prints a warning message.
+//!    4. If the DRDY interrupt does not occur within the specified timeout, it turns on an LED.
+//!
+//! \return None. (Function does not exit unless externally terminated.)
+//
+//****************************************************************************
+
 Void adcTask(UArg a0, UArg a1)
 {
-    //unsigned long ulUserData;
-    //ulUserData = ' ';
+    // Initial sleep before entering main loop
     Task_sleep((UInt)a0);
-    bool interruptOccurred = waitForDRDYinterrupt(10000);
-
-    if (interruptOccurred) {
-        set_flag_nDRDY_INTERRUPT(false);
-
-        int8_t address = 0x4;
-        uint16_t regValue1 = readSingleRegister(address);
-        System_printf("The value of register at address 0x%x was 0x%x\n", address, regValue1);
-        //regValue1 &= ~0x0300;
-        //System_printf("The value of register at address 0x%x will be 0x%x\n", address, regValue1);
-
-        //MAP_SPICSEnable(GSPI_BASE);
-        //writeSingleRegister(0x1, regValue1);
-        //MAP_SPICSDisable(GSPI_BASE);
-        //uint16_t regValue2 = readSingleRegister(address);
-
-        //System_printf("The value of register at address 0x%x is 0x%x\n", address, regValue2);
-        System_flush();
-    } else {
-        GPIO_write(Board_LED0, Board_LED_ON);
-    }
 
     while(1) {
+        // Wait for DRDY interrupt or timeout
+        bool interruptOccurred = waitForDRDYinterrupt(10000);
 
+            if (interruptOccurred) {
+                // Clear interrupt flag
+                set_flag_nDRDY_INTERRUPT(false);
+
+                // Read data from ADC
+                bool crcError = readData(&adcData);
+
+                if (crcError) {
+                    // Print warning for CRC error
+                    System_printf("CRC error occurred.");
+                    System_flush();
+                } else {
+
+                }
+
+            } else {
+                // Turn on LED if no interrupt within timeout
+                GPIO_write(Board_LED0, Board_LED_ON);
+            }
     }
 }
-
-//*****************************************************************************
-//
-//! Board Initialization & Configuration
-//!
-//! \param  None
-//!
-//! \return None
-//
-//*****************************************************************************
 
 /*
  *  ======== main ========
  */
 int main()
 {
-
     Task_Params tskParams;
-    /* Call board init functions */
+
+    // Initialize board-related functions
     Board_initGeneral();
     Board_initGPIO();
-    // Board_initI2C();
-    // Board_initSDSPI();
     Board_initSPI();
-    // Board_initUART();
-    // Board_initWatchdog();
     BoardInit();
 
-    /* Turn off user LED  */
+    // Turn off the user LED
     GPIO_write(Board_LED0, Board_LED_OFF);
 
-    //
-    // Muxing UART and SPI lines.
-    //
+    // Configure pin functions for GPIO and SPI
     PinMuxConfig();
+
+    // Initialize PWM modules
     InitPWMModules();
 
+    // Set initial match value for timer (for PWM granularity)
     MAP_TimerMatchSet(TIMERA3_BASE,TIMER_B,DUTYCYCLE_GRANULARITY);
 
-    //
-    // Enable the SPI module clock
-    //
+    // Initialize ADC with SPI enabled
     InitADC();
 
+    // Set up the ADC task
     Task_Params_init(&tskParams);
     tskParams.stackSize = TASKSTACKSIZE;
     tskParams.stack = &tsk0Stack;
     tskParams.arg0 = 1000;
     Task_construct(&tsk0Struct, (Task_FuncPtr)adcTask, &tskParams, NULL);
 
-    /* Start BIOS */
+    // Launch the TI-RTOS kernel
     BIOS_start();
 
     return (0);

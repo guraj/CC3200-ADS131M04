@@ -117,7 +117,7 @@ void adcStartup(void)
 	//uint16_t response = sendCommand(OPCODE_NULL);
 
 	/* (OPTIONAL) Define your initial register settings here */
-	/* Setting CLOCK to 16KHz output rate and Low-power mode */
+	/* Setting CLOCK to 16KHz output rate and low-power mode */
     writeSingleRegister(CLOCK_ADDRESS, (CLOCK_DEFAULT & ~CLOCK_OSR_MASK) | CLOCK_OSR_1024);
     uint16_t currentClockValue = readSingleRegister(CLOCK_ADDRESS);
     writeSingleRegister(CLOCK_ADDRESS, (currentClockValue & ~CLOCK_PWR_MASK) | CLOCK_PWR_LP);
@@ -137,10 +137,6 @@ void adcStartup(void)
      */
     /* Setting MODE to 16-bit word length */
     writeSingleRegister(MODE_ADDRESS, (MODE_DEFAULT & ~MODE_WLENGTH_MASK) | MODE_WLENGTH_16BIT);
-
-    /* (OPTIONAL) Read back all registers */
-
-	/* (OPTIONAL) Check STATUS register for faults */
 }
 
 

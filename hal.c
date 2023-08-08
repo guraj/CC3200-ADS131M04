@@ -206,19 +206,12 @@ void delay_us(const uint32_t delay_time_us)
 //*****************************************************************************
 void InitGPIO(void)
 {
-    /* --- INSERT YOUR CODE HERE --- */
-    // NOTE: Not all hardware implementations may control each of these pins...
-
     /* Configure the GPIO for 'nSYNC_nRESET' as output and set high */
     MAP_GPIOPinWrite(GPIOA1_BASE, 1 << GPIO_PIN_4, 1 << GPIO_PIN_4);
 
     /* Configure the GPIO for 'nDRDY' as input with falling edge interrupt */
     GPIO_setCallback(Board_BUTTON1, GPIO_DRDY_IRQHandler);
     GPIO_enableInt(Board_BUTTON1);
-    //MAP_GPIOIntRegister(GPIOA1_BASE, GPIO_DRDY_IRQHandler);
-    //MAP_GPIOIntTypeSet(GPIOA1_BASE, GPIO_PIN_5, GPIO_FALLING_EDGE);
-    //MAP_GPIOIntEnable(GPIOA1_BASE, GPIO_PIN_5);
-    //MAP_IntEnable(INT_GPIOA1);
 }
 
 
@@ -255,13 +248,10 @@ void GPIO_DRDY_IRQHandler(unsigned int index)
     /* Get the interrupt status from the GPIO and clear the status */
     uint32_t getIntStatus = MAP_GPIOIntStatus(nDRDY_PORT, true);
 
-    /* Check if the nDRDY pin triggered the interrupt */
-    //if(getIntStatus & nDRDY_PIN)
-    //{
-        /* Interrupt action: Set a flag */
-        flag_nDRDY_INTERRUPT = true;
-    //}
+    /* Interrupt action: Set a flag */
+    flag_nDRDY_INTERRUPT = true;
 
+    /* Random number generation to verify interrupt handler being triggered */
     randomNumber = (uint8_t)rand() % 256;
 
     /* Clear interrupt */

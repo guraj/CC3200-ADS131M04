@@ -88,7 +88,7 @@
 // Flag to indicate if a /DRDY interrupt has occurred
 static volatile bool flag_nDRDY_INTERRUPT = false;
 volatile uint8_t randomNumber = 0;
-#define SPI_IF_BIT_RATE  100000
+#define SPI_IF_BIT_RATE  10000000
 
 
 

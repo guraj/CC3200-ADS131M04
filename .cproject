@@ -14,7 +14,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactExtension="out" artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" errorParsers="org.eclipse.rtsc.xdctools.parsers.ErrorParser;org.eclipse.cdt.core.GmakeErrorParser;com.ti.ccstudio.errorparser.CoffErrorParser;com.ti.ccstudio.errorparser.AsmErrorParser;com.ti.ccstudio.errorparser.LinkErrorParser" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.613300678" name="Debug" parent="com.ti.ccstudio.buildDefinitions.TMS470.Debug">
+				<configuration artifactExtension="out" artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" errorParsers="org.eclipse.rtsc.xdctools.parsers.ErrorParser;org.eclipse.cdt.core.GmakeErrorParser;com.ti.ccstudio.errorparser.CoffErrorParser;com.ti.ccstudio.errorparser.AsmErrorParser;com.ti.ccstudio.errorparser.LinkErrorParser" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.613300678" name="Debug" parent="com.ti.ccstudio.buildDefinitions.TMS470.Debug" postbuildStep="C:\ti\ccsv8\tools\compiler\gcc-arm-none-eabi-7-2017-q4-major-win32\arm-none-eabi\bin\objcopy -O binary empty_min_CC3200_LAUNCHXL_TI_CC3200.out empty_min_CC3200_LAUNCHXL_TI_CC3200.bin">
 					<folderInfo id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.613300678." name="/" resourcePath="">
 						<toolChain id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.DebugToolchain.488470224" name="TI Build Tools" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.DebugToolchain" targetTool="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.linkerDebug.1012659204">
 							<option id="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS.146171145" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS" valueType="stringList">
@@ -235,4 +235,5 @@
 			<content-type-mapping configuration="" content-type="org.eclipse.cdt.core.cxxSource" language="com.ti.ccstudio.core.TIGPPLanguage"/>
 		</project-mappings>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 </cproject>

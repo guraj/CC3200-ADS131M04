@@ -16,7 +16,7 @@ BIOS_INC  = -I"C:/ti/tirtos_cc32xx_2_16_01_14/products/bios_6_45_02_31/packages/
 
 TARGET_INC = -I"C:/ti/tirtos_cc32xx_2_16_01_14/products/bios_6_45_02_31/packages/"
 
-INCS = $(BIOS_INC) $(TARGET_INC)  --include_path="C:/Users/fhasd/workspace_v8/empty_min_CC3200_LAUNCHXL_TI_CC3200" --include_path="C:/Users/fhasd/workspace_v8/empty_min_CC3200_LAUNCHXL_TI_CC3200" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0/inc" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0/driverlib" --include_path="C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/include" 
+INCS = $(BIOS_INC) $(TARGET_INC)  --include_path="C:/Users/fhasd/workspace_v8/empty_min_CC3200_LAUNCHXL_TI_CC3200" --include_path="C:/Users/fhasd/workspace_v8/empty_min_CC3200_LAUNCHXL_TI_CC3200" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/example/common" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0/inc" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0/driverlib" --include_path="C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/include" 
 
 CC = C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/bin/armcl -c $(CCOPTS) -I C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/include
 ASM = C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/bin/armcl -c $(CCOPTS) -I C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/include

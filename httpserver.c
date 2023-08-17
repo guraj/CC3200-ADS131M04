@@ -50,6 +50,8 @@
 //
 //****************************************************************************
 
+#include <stdio.h>
+
 // Standard includes
 #include <string.h>
 #include <stdlib.h>
@@ -549,10 +551,61 @@ void SimpleLinkGeneralEventHandler(SlDeviceEvent_t *pDevEvent)
 //*****************************************************************************
 void SimpleLinkSockEventHandler(SlSockEvent_t *pSock)
 {
+    if(pSock == NULL)
+    {
+        return;
+    }
+
     //
     // This application doesn't work w/ socket - Events are not expected
     //
- 
+    switch( pSock->Event )
+    {
+        case SL_SOCKET_TX_FAILED_EVENT:
+            switch( pSock->socketAsyncEvent.SockTxFailData.status)
+            {
+                case SL_ECLOSE:
+                    UART_PRINT("[SOCK ERROR] - close socket (%d) operation "
+                                "failed to transmit all queued packets\n\n",
+                                    pSock->socketAsyncEvent.SockTxFailData.sd);
+                    break;
+                default:
+                    UART_PRINT("[SOCK ERROR] - TX FAILED  :  socket %d , reason "
+                                "(%d) \n\n",
+                                pSock->socketAsyncEvent.SockTxFailData.sd, pSock->socketAsyncEvent.SockTxFailData.status);
+                  break;
+            }
+            break;
+
+        case SL_SOCKET_ASYNC_EVENT:
+
+             switch(pSock->socketAsyncEvent.SockAsyncData.type)
+             {
+             case SSL_ACCEPT:/*accept failed due to ssl issue ( tcp pass)*/
+                 UART_PRINT("[SOCK ERROR] - close socket (%d) operation"
+                             "accept failed due to ssl issue\n\r",
+                             pSock->socketAsyncEvent.SockAsyncData.sd);
+                 break;
+             case RX_FRAGMENTATION_TOO_BIG:
+                 UART_PRINT("[SOCK ERROR] -close scoket (%d) operation"
+                             "connection less mode, rx packet fragmentation\n\r"
+                             "> 16K, packet is being released",
+                             pSock->socketAsyncEvent.SockAsyncData.sd);
+                 break;
+             case OTHER_SIDE_CLOSE_SSL_DATA_NOT_ENCRYPTED:
+                 UART_PRINT("[SOCK ERROR] -close socket (%d) operation"
+                             "remote side down from secure to unsecure\n\r",
+                            pSock->socketAsyncEvent.SockAsyncData.sd);
+                 break;
+             default:
+                 UART_PRINT("unknown sock async event: %d\n\r",
+                             pSock->socketAsyncEvent.SockAsyncData.type);
+             }
+            break;
+        default:
+            UART_PRINT("[SOCK EVENT] - Unexpected Event [%x0x]\n\n",pSock->Event);
+          break;
+    }
 }
 
 //*****************************************************************************

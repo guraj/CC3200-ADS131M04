@@ -65,6 +65,7 @@
 									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/inc/"/>
 									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/example/common"/>
 									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/netapps/"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/netapps/http/server/"/>
 									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink_extlib/provisioninglib"/>
 									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/oslib"/>
 									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/ccs/OS"/>

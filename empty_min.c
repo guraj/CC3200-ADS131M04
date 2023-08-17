@@ -273,14 +273,6 @@ Void adcTask(UArg a0, UArg a1)
     // Initial sleep before entering main loop
     Task_sleep((UInt)a0);
 
-    //uint16_t regValue1 = readSingleRegister(0x2);
-    //uint16_t regValue2 = readSingleRegister(0x3);
-    //uint16_t regValue3 = readSingleRegister(0x4);
-    //System_printf("MODE register (address: 0x%x) is 0x%x\n", 0x2, regValue1);
-    //System_printf("CLOCK register (address: 0x%x) is 0x%x\n", 0x3, regValue2);
-    //System_printf("GAIN1 register (address: 0x%x) is 0x%x\n", 0x4, regValue3);
-    //System_flush();
-
     while(1) {
         // Wait for DRDY interrupt or timeout
         bool interruptOccurred = waitForDRDYinterrupt(10000);

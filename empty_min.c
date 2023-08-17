@@ -40,9 +40,14 @@
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
+#include <osi.h>
+#include <simplelink.h>
+#include "sockets.h"
+
 /* BIOS Header files */
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Semaphore.h>
 
 /* TI-RTOS Header files */
 #include <ti/drivers/GPIO.h>
@@ -57,6 +62,7 @@
 #include "hw_common_reg.h"
 #include "hw_ints.h"
 #include "hw_apps_rcm.h"
+#include "pin.h"
 
 // Driverlib includes: Peripheral Libraries
 #include "spi.h"
@@ -70,11 +76,15 @@
 #include "utils.h"
 #include "prcm.h"
 #include "gpio_if.h"
+#include "uart_if.h"
+#include "common.h"
 
 // Interface includes
 #include "pin_mux_config.h"
 #include "hal.h"         // Important methods defined in hal.c
 #include "ads131m0x.h"   // Important methods defined in ads131m0x.c
+
+#include "httpserver_pinmux.h"
 
 //*****************************************************************************
 //                 DEFINITIONS FOR SPI SETTINGS
@@ -96,6 +106,16 @@
 Task_Struct tsk0Struct;
 UInt8 tsk0Stack[TASKSTACKSIZE];
 Task_Handle task;
+
+#define OSI_STACK_SIZE                  (2048)
+#define OOB_TASK_PRIORITY               (1)
+Task_Struct httpserver_tsk0Struct;
+UInt8 httpserver_tsk0Stack[OSI_STACK_SIZE];
+Task_Handle httpserver_task;
+void HTTPServerTask(UArg a0, UArg a1);
+
+Semaphore_Handle httpServerInitCompleteSemaphore;
+Semaphore_Struct structSem;
 
 //*****************************************************************************
 //                 GLOBAL VARIABLES
@@ -209,6 +229,9 @@ BoardInit(void)
   //
   // Set vector table base
   //
+#if defined(ccs) || defined(gcc)
+    MAP_IntVTableBaseSet((unsigned long)&g_pfnVectors[0]);
+#endif
 #if defined(ewarm)
     MAP_IntVTableBaseSet((unsigned long)&__vector_table);
 #endif
@@ -244,6 +267,9 @@ BoardInit(void)
 
 Void adcTask(UArg a0, UArg a1)
 {
+    // Wait for HTTP server initialization to complete
+    Semaphore_pend(httpServerInitCompleteSemaphore, BIOS_WAIT_FOREVER);
+
     // Initial sleep before entering main loop
     Task_sleep((UInt)a0);
 
@@ -280,7 +306,9 @@ Void adcTask(UArg a0, UArg a1)
 
             } else {
                 // Turn on LED if no interrupt within timeout
-                GPIO_write(Board_LED0, Board_LED_ON);
+                //GPIO_write(Board_LED0, Board_LED_ON);
+                System_printf("No DRDY interrupt detected\n");
+                System_flush();
             }
     }
 }
@@ -291,18 +319,41 @@ Void adcTask(UArg a0, UArg a1)
 int main()
  {
     Task_Params tskParams;
+    long lRetVal = -1;
+    Semaphore_Params semParams;
+    Semaphore_Params_init(&semParams);
+    Semaphore_construct(&structSem, 0, &semParams);
+    httpServerInitCompleteSemaphore = Semaphore_handle(&structSem);
 
     // Initialize board-related functions
     Board_initGeneral();
     Board_initGPIO();
     Board_initSPI();
+    Board_initWiFi();
     BoardInit();
 
     // Turn off the user LED
-    GPIO_write(Board_LED0, Board_LED_OFF);
+    //GPIO_write(Board_LED0, Board_LED_OFF);
 
     // Configure pin functions for GPIO and SPI
     PinMuxConfig();
+    httpserver_PinMuxConfig();
+
+    // Change Pin 58 Configuration from Default to Pull Down
+    MAP_PinConfigSet(PIN_58,PIN_STRENGTH_2MA|PIN_STRENGTH_4MA,PIN_TYPE_STD_PD);
+
+    //
+    // Initialize GREEN and ORANGE LED
+    //
+    GPIO_IF_LedConfigure(LED1|LED2|LED3);
+    //Turn Off the LEDs
+    GPIO_IF_LedOff(MCU_ALL_LED_IND);
+
+    // UART Initialization
+    MAP_PRCMPeripheralReset(PRCM_UARTA0);
+    MAP_UARTConfigSetExpClk(CONSOLE, MAP_PRCMPeripheralClockGet(CONSOLE_PERIPH),
+                            UART_BAUD_RATE, (UART_CONFIG_WLEN_8 |
+                            UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
 
     // Initialize PWM modules
     InitPWMModules();
@@ -319,6 +370,24 @@ int main()
     tskParams.stack = &tsk0Stack;
     tskParams.arg0 = 1000;
     Task_construct(&tsk0Struct, (Task_FuncPtr)adcTask, &tskParams, NULL);
+
+
+    //
+    // Simplelinkspawntask
+    //
+    lRetVal = VStartSimpleLinkSpawnTask(SPAWN_TASK_PRIORITY);
+    if(lRetVal < 0)
+    {
+        System_printf("Unable to start simplelink spawn task");
+        System_flush();
+    }
+
+    // Set up the HTTP Server task
+    Task_Params_init(&tskParams);
+    tskParams.stackSize = OSI_STACK_SIZE;
+    tskParams.stack = &httpserver_tsk0Stack;
+    tskParams.priority = OOB_TASK_PRIORITY;
+    Task_construct(&httpserver_tsk0Struct, (Task_FuncPtr)HTTPServerTask, &tskParams, NULL);
 
     // Launch the TI-RTOS kernel
     BIOS_start();

@@ -35,6 +35,9 @@
 							<tool id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.675112561" name="ARM Compiler" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug">
 								<option id="com.ti.ccstudio.buildDefinitions.TMS470_18.1.compilerID.DEFINE.504356131" name="Pre-define NAME (--define, -D)" superClass="com.ti.ccstudio.buildDefinitions.TMS470_18.1.compilerID.DEFINE" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="${COM_TI_RTSC_TIRTOSCC32XX_SYMBOLS}"/>
+									<listOptionValue builtIn="false" value="USE_TIRTOS"/>
+									<listOptionValue builtIn="false" value="__SL__"/>
+									<listOptionValue builtIn="false" value="SL_PLATFORM_MULTI_THREADED"/>
 									<listOptionValue builtIn="false" value="cc3200"/>
 									<listOptionValue builtIn="false" value="PART_CC3200"/>
 									<listOptionValue builtIn="false" value="ccs"/>
@@ -55,7 +58,21 @@
 									<listOptionValue builtIn="false" value="${COM_TI_RTSC_TIRTOSCC32XX_INCLUDE_PATH}"/>
 									<listOptionValue builtIn="false" value="${PROJECT_ROOT}"/>
 									<listOptionValue builtIn="false" value="${workspace_loc:/${ProjName}}"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/include"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/source"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/driverlib/"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/inc/"/>
 									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/example/common"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/netapps/"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink_extlib/provisioninglib"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/oslib"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/ccs/OS"/>
+									<listOptionValue builtIn="false" value="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/driverlib"/>
+									<listOptionValue builtIn="false" value="C:\ti\tirtos_cc32xx_2_16_01_14\products\tidrivers_cc32xx_2_16_01_13\packages\ti\drivers\wifi"/>
+									<listOptionValue builtIn="false" value="C:\ti\tirtos_cc32xx_2_16_01_14\products\tidrivers_cc32xx_2_16_01_13\packages\ti\mw\wifi\cc3x00"/>
+									<listOptionValue builtIn="false" value="C:\ti\tirtos_cc32xx_2_16_01_14\products\tidrivers_cc32xx_2_16_01_13\packages\ti\mw\wifi\cc3x00\oslib"/>
+									<listOptionValue builtIn="false" value="C:\ti\tirtos_cc32xx_2_16_01_14\products\tidrivers_cc32xx_2_16_01_13\packages\ti\mw\wifi\cc3x00\simplelink\include"/>
 									<listOptionValue builtIn="false" value="${COM_TI_RTSC_TIRTOSCC32XX_INSTALL_DIR}/products/CC3200_driverlib_1.1.0"/>
 									<listOptionValue builtIn="false" value="${COM_TI_RTSC_TIRTOSCC32XX_INSTALL_DIR}/products/CC3200_driverlib_1.1.0/inc"/>
 									<listOptionValue builtIn="false" value="${COM_TI_RTSC_TIRTOSCC32XX_INSTALL_DIR}/products/CC3200_driverlib_1.1.0/driverlib"/>

@@ -32,6 +32,7 @@
  */
 
 #include <stdlib.h>
+#include <ti/sysbios/knl/Task.h>
 
 // Driverlib includes
 #include "hw_types.h"
@@ -450,6 +451,7 @@ bool waitForDRDYinterrupt(const uint32_t timeout_ms)
     // Wait for nDRDY interrupt or timeout - each iteration is about 20 ticks
     do {
         timeout--;
+        Task_sleep(1000);
     } while (!flag_nDRDY_INTERRUPT && (timeout > 0));
 
     // Reset interrupt flag

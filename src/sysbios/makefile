@@ -16,7 +16,7 @@ BIOS_INC  = -I"C:/ti/tirtos_cc32xx_2_16_01_14/products/bios_6_45_02_31/packages/
 
 TARGET_INC = -I"C:/ti/tirtos_cc32xx_2_16_01_14/products/bios_6_45_02_31/packages/"
 
-INCS = $(BIOS_INC) $(TARGET_INC)  --include_path="C:/Users/fhasd/workspace_v8/empty_min_CC3200_LAUNCHXL_TI_CC3200" --include_path="C:/Users/fhasd/workspace_v8/empty_min_CC3200_LAUNCHXL_TI_CC3200" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/example/common" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0/inc" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0/driverlib" --include_path="C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/include" 
+INCS = $(BIOS_INC) $(TARGET_INC)  --include_path="C:/Users/fhasd/workspace_v8/empty_min_CC3200_LAUNCHXL_TI_CC3200" --include_path="C:/Users/fhasd/workspace_v8/empty_min_CC3200_LAUNCHXL_TI_CC3200" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/include" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/source" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/driverlib/" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/inc/" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/example/common" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/netapps/" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink_extlib/provisioninglib" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/oslib" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/simplelink/ccs/OS" --include_path="C:/ti/CC3200SDK_1.5.0/cc3200-sdk/driverlib" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/tidrivers_cc32xx_2_16_01_13/packages/ti/drivers/wifi" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/tidrivers_cc32xx_2_16_01_13/packages/ti/mw/wifi/cc3x00" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/tidrivers_cc32xx_2_16_01_13/packages/ti/mw/wifi/cc3x00/oslib" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/tidrivers_cc32xx_2_16_01_13/packages/ti/mw/wifi/cc3x00/simplelink/include" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0/inc" --include_path="C:/ti/tirtos_cc32xx_2_16_01_14/products/CC3200_driverlib_1.1.0/driverlib" --include_path="C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/include" 
 
 CC = C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/bin/armcl -c $(CCOPTS) -I C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/include
 ASM = C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/bin/armcl -c $(CCOPTS) -I C:/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.1.LTS/include
@@ -53,7 +53,7 @@ m3_TaskSupport_asm.obj: family/arm/m3/TaskSupport_asm.sv7M makefile
 	$(ASSEMBLE) --output_file=m3_TaskSupport_asm.obj
 
 
-BIOS.obj: BIOS.c knl/Clock.c knl/Idle.c knl/Intrinsics.c knl/Queue.c knl/Semaphore.c knl/Swi.c knl/Swi_andn.c knl/Task.c hal/Hwi.c hal/Hwi_stack.c hal/Hwi_startup.c family/arm/m3/Hwi.c family/arm/m3/TaskSupport.c family/arm/m3/Timer.c gates/GateHwi.c gates/GateMutex.c heaps/HeapMem.c makefile
+BIOS.obj: BIOS.c knl/Clock.c knl/Idle.c knl/Intrinsics.c knl/Event.c knl/Mailbox.c knl/Queue.c knl/Semaphore.c knl/Swi.c knl/Swi_andn.c knl/Task.c hal/Hwi.c hal/Hwi_stack.c hal/Hwi_startup.c family/arm/m3/Hwi.c family/arm/m3/TaskSupport.c family/arm/m3/Timer.c gates/GateHwi.c gates/GateMutex.c heaps/HeapMem.c makefile
 	@-$(call RM, $@)
 	@echo clem4 $< ...
 	@$(CC) $(BIOS_DEFS) $(XOPTS) $(INCS) \
@@ -61,6 +61,8 @@ BIOS.obj: BIOS.c knl/Clock.c knl/Idle.c knl/Intrinsics.c knl/Queue.c knl/Semapho
 	$(BIOS_ROOT)knl/Clock.c \
 	$(BIOS_ROOT)knl/Idle.c \
 	$(BIOS_ROOT)knl/Intrinsics.c \
+	$(BIOS_ROOT)knl/Event.c \
+	$(BIOS_ROOT)knl/Mailbox.c \
 	$(BIOS_ROOT)knl/Queue.c \
 	$(BIOS_ROOT)knl/Semaphore.c \
 	$(BIOS_ROOT)knl/Swi.c \

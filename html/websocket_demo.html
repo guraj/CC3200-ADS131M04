@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+
+<!--[if lte IE 9 ]> <html class="ie"> <![endif]-->
+<!--[if (gt IE 9)|!(IE)]><!--> <html> <!--<![endif]-->
+
+<head>
+<style>
+
+</style>
+
+<link rel="stylesheet" type="text/css" href="simple_link.css">
+<script src="js/jquery-1.8.3.min.js"></script>
+<script type="text/javascript">
+var sl_ws;
+//var counter = 0;
+function StartSocket() {
+
+	var url = $('#wsURL').val();
+	sl_ws = new WebSocket(url);
+	sl_ws.binaryType = 'arraybuffer';
+
+	sl_ws.onopen = function() {
+		sl_ws.send("start");
+		alert("WebSocket Connected");
+	};
+
+	sl_ws.onerror = function() {
+	    alert("WebSocket Error");
+	};
+
+	sl_ws.onmessage = function(event) {
+		//var wsRecvMsg;
+		//wsRecvMsg = new String(event.data);
+		//wsRecvMsg = String.fromCharCode.apply(null, new Uint8Array(event.data));		// Use for sending unicode
+		//alert(wsRecvMsg);
+		document.getElementById('counter').innerHTML = event.data;		// Update counter value
+		var data = JSON.parse("[" + event.data + "]");
+
+		var table = document.getElementById("adcdata");
+		var row = table.insertRow(0);
+
+		row.insertCell(0).innerHTML = data[0];
+		row.insertCell(1).innerHTML = data[1];
+		row.insertCell(2).innerHTML = data[2];
+		row.insertCell(3).innerHTML = data[3];
+	};	
+	
+	sl_ws.onclose = function() {
+		alert("WebSocket Closed");
+	};
+	
+}
+
+function StopSocket() {
+
+	//Close Websocket
+	sl_ws.send("stop");
+	sl_ws.close();
+	alert("WebSocket Closed");
+}
+
+
+</script>
+
+</head>
+
+<body class="in-frame">
+
+<table border="0"  width="100%" cellpadding="3" cellspacing="0">
+
+<tr>  
+<td class="page-title" colspan=2 >
+	ADS131M04 Data</td>
+</tr>
+
+
+<tr>
+<td align=center class = "in-a-box" colspan=2> <br>
+CC3200 IP Address (Websocket Location):<br>
+<input type="text" maxlength="100" id="wsURL" name="URL" value="ws://192.168.32.235" />
+<button onclick="StartSocket()" >Connect</button>
+<button onclick="StopSocket()" >Disconnect</button><br><br><br>
+</td>
+</tr>
+<tr>
+<td class="in-a-box" colspan=2 align=center><p><a id="counter">0</a></p>
+</td>
+</tr>
+<tr >
+<td class = "border-l-top" colspan=2 >
+</td>
+</tr>
+</table>
+<table id="adcdata"></table>
+</body>
+</html>

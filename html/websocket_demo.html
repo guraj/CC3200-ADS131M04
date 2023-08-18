@@ -10,9 +10,14 @@
 
 <link rel="stylesheet" type="text/css" href="simple_link.css">
 <script src="js/jquery-1.8.3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.3.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@1.27.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.0.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@2.0.0"></script>
 <script type="text/javascript">
 var sl_ws;
-//var counter = 0;
+var counter = 0;
+var chart;
 function StartSocket() {
 
 	var url = $('#wsURL').val();
@@ -29,20 +34,27 @@ function StartSocket() {
 	};
 
 	sl_ws.onmessage = function(event) {
-		//var wsRecvMsg;
-		//wsRecvMsg = new String(event.data);
-		//wsRecvMsg = String.fromCharCode.apply(null, new Uint8Array(event.data));		// Use for sending unicode
-		//alert(wsRecvMsg);
-		document.getElementById('counter').innerHTML = event.data;		// Update counter value
 		var data = JSON.parse("[" + event.data + "]");
+
+		chart.data.datasets[0].data.push({
+			x: Date.now(),
+			y: data[0]
+		});
+		chart.update();
 
 		var table = document.getElementById("adcdata");
 		var row = table.insertRow(0);
 
-		row.insertCell(0).innerHTML = data[0];
-		row.insertCell(1).innerHTML = data[1];
-		row.insertCell(2).innerHTML = data[2];
-		row.insertCell(3).innerHTML = data[3];
+		row.insertCell(0).innerHTML = ++counter;
+		row.insertCell(1).innerHTML = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).toLowerCase();
+		row.insertCell(2).innerHTML = data[0];
+		row.insertCell(3).innerHTML = data[1];
+		row.insertCell(4).innerHTML = data[2];
+		row.insertCell(5).innerHTML = data[3];
+
+		if (table.rows.length > 100) {
+			table.deleteRow(table.rows.length - 1);
+		}
 	};	
 	
 	sl_ws.onclose = function() {
@@ -59,6 +71,41 @@ function StopSocket() {
 	alert("WebSocket Closed");
 }
 
+	document.addEventListener("DOMContentLoaded", function () {
+		const ctx = document.getElementById('myChart');
+
+		chart = new Chart(ctx, {
+			type: 'line',
+			data: {
+				datasets: [{
+					label: 'Channel 0',
+					borderColor: 'rgb(75, 192, 192)',
+					backgroundColor: 'rgba(75, 192, 192, 0.5)',
+					lineTension: 0.5,
+					data: []
+				}]
+			},
+			options: {
+				scales: {
+					x: {
+						type: 'realtime',
+						realtime: {
+							duration: 300000,   // Display data for 15 minutes
+							delay: 100        // Delay of 2 seconds
+						}
+					},
+					y: {
+						beginAtZero: true
+					}
+				},
+				plugins: {
+					streaming: {
+						frameRate: 30  // Frame rate to render data with
+					}
+				}
+			}
+		});
+	});
 
 </script>
 
@@ -82,15 +129,10 @@ CC3200 IP Address (Websocket Location):<br>
 <button onclick="StopSocket()" >Disconnect</button><br><br><br>
 </td>
 </tr>
-<tr>
-<td class="in-a-box" colspan=2 align=center><p><a id="counter">0</a></p>
-</td>
-</tr>
-<tr >
-<td class = "border-l-top" colspan=2 >
-</td>
-</tr>
 </table>
-<table id="adcdata"></table>
+<div>
+	<canvas id="myChart"></canvas>
+</div>
+<table border="1" id="adcdata"></table>
 </body>
 </html>

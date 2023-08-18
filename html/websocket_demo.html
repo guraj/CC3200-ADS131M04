@@ -40,6 +40,18 @@ function StartSocket() {
 			x: Date.now(),
 			y: data[0]
 		});
+		chart.data.datasets[1].data.push({
+			x: Date.now(),
+			y: data[1]
+		});
+		chart.data.datasets[2].data.push({
+			x: Date.now(),
+			y: data[2]
+		});
+		chart.data.datasets[3].data.push({
+			x: Date.now(),
+			y: data[3]
+		});
 		chart.update();
 
 		var table = document.getElementById("adcdata");
@@ -83,9 +95,28 @@ function StopSocket() {
 					backgroundColor: 'rgba(75, 192, 192, 0.5)',
 					lineTension: 0.5,
 					data: []
+				}, {
+					label: 'Channel 1',
+					borderColor: 'rgb(256, 0, 0)',
+					backgroundColor: 'rgba(256, 0, 0, 0.5)',
+					lineTension: 0.5,
+					data: []
+				}, {
+					label: 'Channel 2',
+					borderColor: 'rgb(0, 256, 0)',
+					backgroundColor: 'rgba(0, 256, 0, 0.5)',
+					lineTension: 0.5,
+					data: []
+				}, {
+					label: 'Channel 3',
+					borderColor: 'rgb(0, 0, 256)',
+					backgroundColor: 'rgba(0, 0, 256, 0.5)',
+					lineTension: 0.5,
+					data: []
 				}]
 			},
 			options: {
+				animation: false,
 				scales: {
 					x: {
 						type: 'realtime',

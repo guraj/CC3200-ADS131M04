@@ -39,6 +39,7 @@
 
 // Standard includes
 #include <stdio.h>
+#include "osi.h"
 
 // Driverlib includes
 #include "hw_types.h"
@@ -55,7 +56,7 @@
 // OS includes
 #if defined(USE_TIRTOS) || defined(USE_FREERTOS) || defined(SL_PLATFORM_MULTI_THREADED)
 #include <stdlib.h>
-#include "osi.h"
+
 #endif
 
 // Common interface include
@@ -385,8 +386,8 @@ GPIO_IF_ConfigureNIntEnable(unsigned int uiGPIOPort,
     // USE_TIRTOS: if app uses TI-RTOS (either networking/non-networking)
     // USE_FREERTOS: if app uses Free-RTOS (either networking/non-networking)
     // SL_PLATFORM_MULTI_THREADED: if app uses any OS + networking(simplelink)
-    osi_InterruptRegister(GetPeripheralIntNum(uiGPIOPort),
-                                        pfnIntHandler, INT_PRIORITY_LVL_1);
+    //osi_InterruptRegister(GetPeripheralIntNum(uiGPIOPort),
+    //                                    pfnIntHandler, INT_PRIORITY_LVL_1);
                 
 #else
 	MAP_IntPrioritySet(GetPeripheralIntNum(uiGPIOPort), INT_PRIORITY_LVL_1);

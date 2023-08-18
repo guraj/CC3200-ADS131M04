@@ -114,6 +114,11 @@ UInt8 httpserver_tsk0Stack[OSI_STACK_SIZE];
 Task_Handle httpserver_task;
 void HTTPServerTask(UArg a0, UArg a1);
 
+Task_Struct counter_tsk0Struct;
+UInt8 counter_tsk0Stack[OSI_STACK_SIZE];
+Task_Handle counter_task;
+void CounterAppTask(UArg a0, UArg a1);
+
 Semaphore_Handle httpServerInitCompleteSemaphore;
 Semaphore_Struct structSem;
 
@@ -357,11 +362,11 @@ int main()
     InitADC();
 
     // Set up the ADC task
-    Task_Params_init(&tskParams);
-    tskParams.stackSize = TASKSTACKSIZE;
-    tskParams.stack = &tsk0Stack;
-    tskParams.arg0 = 1000;
-    Task_construct(&tsk0Struct, (Task_FuncPtr)adcTask, &tskParams, NULL);
+    //Task_Params_init(&tskParams);
+    //tskParams.stackSize = TASKSTACKSIZE;
+    //tskParams.stack = &tsk0Stack;
+    //tskParams.arg0 = 1000;
+    //Task_construct(&tsk0Struct, (Task_FuncPtr)adcTask, &tskParams, NULL);
 
 
     //
@@ -378,8 +383,15 @@ int main()
     Task_Params_init(&tskParams);
     tskParams.stackSize = OSI_STACK_SIZE;
     tskParams.stack = &httpserver_tsk0Stack;
-    tskParams.priority = OOB_TASK_PRIORITY;
+    tskParams.priority = 1;
     Task_construct(&httpserver_tsk0Struct, (Task_FuncPtr)HTTPServerTask, &tskParams, NULL);
+
+    // Set up the Counter task
+    Task_Params_init(&tskParams);
+    tskParams.stackSize = OSI_STACK_SIZE;
+    tskParams.stack = &counter_tsk0Stack;
+    tskParams.priority = 3;
+    Task_construct(&counter_tsk0Struct, (Task_FuncPtr)CounterAppTask, &tskParams, NULL);
 
     // Launch the TI-RTOS kernel
     BIOS_start();

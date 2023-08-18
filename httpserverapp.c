@@ -197,12 +197,12 @@ void CounterAppTask(UArg a0, UArg a1)
     //
     // Configuring the timer
     //
-    Timer_IF_Init(PRCM_TIMERA0, g_ulBase, TIMER_CFG_PERIODIC, TIMER_A, 0);
+    //Timer_IF_Init(PRCM_TIMERA0, g_ulBase, TIMER_CFG_PERIODIC, TIMER_A, 0);
 
     //
     // Setup the interrupts for the timer timeout.
     //
-    Timer_IF_IntSetup(g_ulBase, TIMER_A, TimerIntHandler);
+    //Timer_IF_IntSetup(g_ulBase, TIMER_A, TimerIntHandler);
 
     //
     // Create semaphore object for counter sync
@@ -225,7 +225,7 @@ void CounterAppTask(UArg a0, UArg a1)
     // Start timer
     // Value in msecs
     //
-    Timer_IF_Start(g_ulBase, TIMER_A, 1000);
+    //Timer_IF_Start(g_ulBase, TIMER_A, 1000);
 
     UART_PRINT("Counter timer started\n\r");
 
@@ -252,7 +252,7 @@ void CounterAppTask(UArg a0, UArg a1)
             UART_PRINT("Error: Cannot send websocket counter update\r\n");
         }
 
-        GPIO_IF_LedToggle(MCU_GREEN_LED_GPIO);
+        //GPIO_IF_LedToggle(MCU_GREEN_LED_GPIO);
     }
 }
 

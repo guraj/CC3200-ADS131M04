@@ -41,7 +41,8 @@ typedef struct
 
 }t_mDNSService;
 
-extern void CounterAppTask(UArg a0, UArg a1);
+extern void HttpServerAppTask(void *);
+extern void CounterAppTask(void *);
 
 
 #endif   //__HTTP_APP_H__

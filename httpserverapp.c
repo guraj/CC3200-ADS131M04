@@ -58,8 +58,6 @@
 
 // Free-RTOS/TI-RTOS include
 #include "osi.h"
-#include <ti/sysbios/BIOS.h>
-#include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Semaphore.h>
 
 // HTTP lib includes
@@ -81,6 +79,16 @@ typedef struct
     char * buffer;
 }event_msg;
 
+// Network App specific status/error codes which are used only in this file
+typedef enum{
+     // Choosing this number to avoid overlap w/ host-driver's error codes
+    DEVICE_NOT_IN_STATION_MODE = -0x7F0,
+    DEVICE_NOT_IN_AP_MODE = DEVICE_NOT_IN_STATION_MODE - 1,
+    DEVICE_NOT_IN_P2P_MODE = DEVICE_NOT_IN_AP_MODE - 1,
+
+    STATUS_CODE_MAX = -0xBB8
+}e_NetAppStatusCodes;
+
 /****************************************************************************
                               Global variables
 ****************************************************************************/
@@ -90,9 +98,12 @@ UINT8 g_success = 0;
 int g_close = 0;
 UINT16 g_uConnection;
 static volatile unsigned long g_ulBase;
-static Semaphore_Handle g_CounterSyncObj;
-//static OsiSyncObj_t g_CounterSyncObj;
-//OsiMsgQ_t g_recvQueue;
+static OsiSyncObj_t g_CounterSyncObj;
+OsiMsgQ_t g_recvQueue;
+extern volatile unsigned long  g_ulStatus;   /* SimpleLink Status */
+extern Semaphore_Handle httpServerInitCompleteSemaphore;
+
+void InitializeAppVariables();
 
 void WebSocketCloseSessionHandler(void)
 {
@@ -120,18 +131,24 @@ void WebSocketRecvEventHandler(UINT16 uConnection, char *ReadBuffer)
     msg.connection = uConnection;
     msg.buffer = ReadBuffer;
 
+    // Notify that HTTP server initialization is complete
+    Semaphore_post(httpServerInitCompleteSemaphore);
+    g_uConnection = msg.connection;
+
+#if 0
     if (!strcmp(msg.buffer,startcounter))
     {
         g_uConnection = msg.connection;
         // Signal to Counter task to start counter
-        Semaphore_post(g_CounterSyncObj);
-        //osi_SyncObjSignal(&g_CounterSyncObj);
+        osi_SyncObjSignal(&g_CounterSyncObj);
     }
     else if (!strcmp(msg.buffer,stopcounter))
     {
         // Stop counter timer
         Timer_IF_Stop(g_ulBase, TIMER_A);
     }
+#endif
+
 }
 
 
@@ -150,110 +167,303 @@ void WebSocketHandshakeEventHandler(UINT16 uConnection)
 	g_success = 1;
 }
 
-//*****************************************************************************
+//****************************************************************************
 //
-//! Timer interrupt handler
+//! \brief Connecting to a WLAN Accesspoint
+//!
+//!  This function connects to the required AP (SSID_NAME) with Security
+//!  parameters specified in te form of macros at the top of this file
 //!
 //! \param  None
 //!
-//! \return none
+//! \return  None
+//!
+//! \warning    If the WLAN connection fails or we don't aquire an IP
+//!            address, It will be stuck in this function forever.
 //
-//*****************************************************************************
-void TimerIntHandler(void)
+//****************************************************************************
+static long WlanConnect()
 {
-    //
-    // Clear the timer interrupt.
-    //
-    Timer_IF_InterruptClear(g_ulBase);
+    SlSecParams_t secParams = {0};
+    long lRetVal = 0;
+
+    secParams.Key = (signed char*)SECURITY_KEY;
+    secParams.KeyLen = strlen(SECURITY_KEY);
+    secParams.Type = SECURITY_TYPE;
+
+    lRetVal = sl_WlanConnect((signed char*)SSID_NAME, strlen(SSID_NAME), 0, &secParams, 0);
+    ASSERT_ON_ERROR(lRetVal);
+
+    // Wait for WLAN Event
+    while((!IS_CONNECTED(g_ulStatus)) || (!IS_IP_ACQUIRED(g_ulStatus)))
+    {
+        // Toggle LEDs to Indicate Connection Progress
+        GPIO_IF_LedOff(MCU_IP_ALLOC_IND);
+        MAP_UtilsDelay(800000);
+        GPIO_IF_LedOn(MCU_IP_ALLOC_IND);
+        MAP_UtilsDelay(800000);
+    }
+
+    return SUCCESS;
+
+}
+
+#define ROLE_INVALID            (-5)
+signed int g_uiIpAddress = 0;
+unsigned char  g_ucConnectionSSID[SSID_LEN_MAX+1]; //Connection SSID
+volatile unsigned short g_usMCNetworkUstate = 0;
+int g_uiSimplelinkRole = ROLE_INVALID;
+
+//*****************************************************************************
+//! \brief This function puts the device in its default state. It:
+//!           - Set the mode to STATION
+//!           - Configures connection policy to Auto and AutoSmartConfig
+//!           - Deletes all the stored profiles
+//!           - Enables DHCP
+//!           - Disables Scan policy
+//!           - Sets Tx power to maximum
+//!           - Sets power policy to normal
+//!           - Unregister mDNS services
+//!           - Remove all filters
+//!
+//! \param   none
+//! \return  On success, zero is returned. On error, negative is returned
+//*****************************************************************************
+long ConfigureSimpleLinkToDefaultState2()
+{
+    SlVersionFull   ver = {0};
+    _WlanRxFilterOperationCommandBuff_t  RxFilterIdMask = {0};
+
+    unsigned char ucVal = 1;
+    unsigned char ucConfigOpt = 0;
+    unsigned char ucConfigLen = 0;
+    unsigned char ucPower = 0;
+
+    long lRetVal = -1;
+    long lMode = -1;
+
+    lMode = modifiedSocketsStartUp();
+    ASSERT_ON_ERROR(lMode);
+
+    // If the device is not in station-mode, try configuring it in station-mode
+    if (ROLE_STA != lMode)
+    {
+        if (ROLE_AP == lMode)
+        {
+            // If the device is in AP mode, we need to wait for this event
+            // before doing anything
+            while(!IS_IP_ACQUIRED(g_ulStatus))
+            {
+#ifndef SL_PLATFORM_MULTI_THREADED
+              _SlNonOsMainLoopTask();
+#endif
+            }
+        }
+
+        // Switch to STA role and restart
+        lRetVal = sl_WlanSetMode(ROLE_STA);
+        ASSERT_ON_ERROR(lRetVal);
+
+        lRetVal = sl_Stop(0xFF);
+        ASSERT_ON_ERROR(lRetVal);
+
+        lRetVal = sl_Start(0, 0, 0);
+        ASSERT_ON_ERROR(lRetVal);
+
+        // Check if the device is in station again
+        if (ROLE_STA != lRetVal)
+        {
+            // We don't want to proceed if the device is not coming up in STA-mode
+            return DEVICE_NOT_IN_STATION_MODE;
+        }
+    }
+
+    // Get the device's version-information
+    ucConfigOpt = SL_DEVICE_GENERAL_VERSION;
+    ucConfigLen = sizeof(ver);
+    lRetVal = sl_DevGet(SL_DEVICE_GENERAL_CONFIGURATION, &ucConfigOpt,
+                                &ucConfigLen, (unsigned char *)(&ver));
+    ASSERT_ON_ERROR(lRetVal);
+
+    UART_PRINT("Host Driver Version: %s\n\r",SL_DRIVER_VERSION);
+    UART_PRINT("Build Version %d.%d.%d.%d.31.%d.%d.%d.%d.%d.%d.%d.%d\n\r",
+    ver.NwpVersion[0],ver.NwpVersion[1],ver.NwpVersion[2],ver.NwpVersion[3],
+    ver.ChipFwAndPhyVersion.FwVersion[0],ver.ChipFwAndPhyVersion.FwVersion[1],
+    ver.ChipFwAndPhyVersion.FwVersion[2],ver.ChipFwAndPhyVersion.FwVersion[3],
+    ver.ChipFwAndPhyVersion.PhyVersion[0],ver.ChipFwAndPhyVersion.PhyVersion[1],
+    ver.ChipFwAndPhyVersion.PhyVersion[2],ver.ChipFwAndPhyVersion.PhyVersion[3]);
+
+    // Set connection policy to Auto + SmartConfig
+    //      (Device's default connection policy)
+    lRetVal = sl_WlanPolicySet(SL_POLICY_CONNECTION,
+                                SL_CONNECTION_POLICY(1, 0, 0, 0, 1), NULL, 0);
+    ASSERT_ON_ERROR(lRetVal);
+
+    // Remove all profiles
+    lRetVal = sl_WlanProfileDel(0xFF);
+    ASSERT_ON_ERROR(lRetVal);
+
+
 
     //
-    // Signal to Counter task to send over websocket
+    // Device in station-mode. Disconnect previous connection if any
+    // The function returns 0 if 'Disconnected done', negative number if already
+    // disconnected Wait for 'disconnection' event if 0 is returned, Ignore
+    // other return-codes
     //
-    Semaphore_post(g_CounterSyncObj);
-    //osi_SyncObjSignal(&g_CounterSyncObj);
+    lRetVal = sl_WlanDisconnect();
+    if(0 == lRetVal)
+    {
+        // Wait
+        while(IS_CONNECTED(g_ulStatus))
+        {
+#ifndef SL_PLATFORM_MULTI_THREADED
+              _SlNonOsMainLoopTask();
+#endif
+        }
+    }
+
+    // Enable DHCP client
+    lRetVal = sl_NetCfgSet(SL_IPV4_STA_P2P_CL_DHCP_ENABLE,1,1,&ucVal);
+    ASSERT_ON_ERROR(lRetVal);
+
+    // Disable scan
+    ucConfigOpt = SL_SCAN_POLICY(0);
+    lRetVal = sl_WlanPolicySet(SL_POLICY_SCAN , ucConfigOpt, NULL, 0);
+    ASSERT_ON_ERROR(lRetVal);
+
+    // Set Tx power level for station mode
+    // Number between 0-15, as dB offset from max power - 0 will set max power
+    ucPower = 0;
+    lRetVal = sl_WlanSet(SL_WLAN_CFG_GENERAL_PARAM_ID,
+            WLAN_GENERAL_PARAM_OPT_STA_TX_POWER, 1, (unsigned char *)&ucPower);
+    ASSERT_ON_ERROR(lRetVal);
+
+    // Set PM policy to normal
+    lRetVal = sl_WlanPolicySet(SL_POLICY_PM , SL_NORMAL_POLICY, NULL, 0);
+    ASSERT_ON_ERROR(lRetVal);
+
+    // Unregister mDNS services
+    lRetVal = sl_NetAppMDNSUnRegisterService(0, 0);
+    ASSERT_ON_ERROR(lRetVal);
+
+    // Remove  all 64 filters (8*8)
+    memset(RxFilterIdMask.FilterIdMask, 0xFF, 8);
+    lRetVal = sl_WlanRxFilterSet(SL_REMOVE_RX_FILTER, (_u8 *)&RxFilterIdMask,
+                       sizeof(_WlanRxFilterOperationCommandBuff_t));
+    ASSERT_ON_ERROR(lRetVal);
+
+    lRetVal = sl_Stop(SL_STOP_TIMEOUT);
+    ASSERT_ON_ERROR(lRetVal);
+
+    InitializeAppVariables();
+
+    return lRetVal; // Success
 }
 
 //****************************************************************************
 //
-//! CounterAppTask
+//!    \brief Connects to the Network in AP or STA Mode - If ForceAP Jumper is
+//!                                             Placed, Force it to AP mode
 //!
-//! \param Initialize timer, wait for timer interrupt, send counter value over websocket
+//! \return                        0 on success else error code
+//
+//****************************************************************************
+
+long ConnectToNetwork()
+{
+    long lRetVal = -1;
+
+    // starting simplelink
+    g_uiSimplelinkRole =  sl_Start(NULL,NULL,NULL);
+
+    // Ensure device is in STA mode
+    if(g_uiSimplelinkRole != ROLE_STA)
+    {
+        // Switch to STA Mode
+        lRetVal = sl_WlanSetMode(ROLE_STA);
+        ASSERT_ON_ERROR(lRetVal);
+
+        lRetVal = sl_Stop(SL_STOP_TIMEOUT);
+
+        g_usMCNetworkUstate = 0;
+        g_uiSimplelinkRole =  sl_Start(NULL,NULL,NULL);
+    }
+
+    // Device should now be in STA mode, proceed to connect
+    lRetVal = WlanConnect();
+    ASSERT_ON_ERROR(lRetVal);
+
+    // Device is connected to the desired Wi-Fi network in STA mode
+
+    // Stop Internal HTTP Server
+    lRetVal = sl_NetAppStop(SL_NET_APP_HTTP_SERVER_ID);
+    ASSERT_ON_ERROR( lRetVal);
+
+    // Start Internal HTTP Server
+    lRetVal = sl_NetAppStart(SL_NET_APP_HTTP_SERVER_ID);
+    ASSERT_ON_ERROR( lRetVal);
+
+    UART_PRINT("\n\rDevice is in STA Mode, Connected to AP[%s] and type"
+          " IP address [%d.%d.%d.%d] in the browser \n\r", g_ucConnectionSSID,
+          SL_IPV4_BYTE(g_uiIpAddress,3), SL_IPV4_BYTE(g_uiIpAddress,2),
+          SL_IPV4_BYTE(g_uiIpAddress,1), SL_IPV4_BYTE(g_uiIpAddress,0));
+
+    return SUCCESS;
+}
+
+//****************************************************************************
+//
+//! HttpServerAppTask
+//!
+//! \param Initialize the network processor, stop internal HTTP server, start webserver
 //!
 //! \return none
 //!
 //****************************************************************************
 
-void CounterAppTask(UArg a0, UArg a1)
+void HttpServerAppTask(void * param)
 {
-    struct HttpBlob Write;
-    UINT8 Opcode = 0x02;
-    unsigned long g_ulTimerInts = 0;
+	long lRetVal = -1;
+	//InitializeAppVariables();
 
-    //
-    // Base address for timer
-    //
-    g_ulBase = TIMERA0_BASE;
-
-    //
-    // Configuring the timer
-    //
-    //Timer_IF_Init(PRCM_TIMERA0, g_ulBase, TIMER_CFG_PERIODIC, TIMER_A, 0);
-
-    //
-    // Setup the interrupts for the timer timeout.
-    //
-    //Timer_IF_IntSetup(g_ulBase, TIMER_A, TimerIntHandler);
-
-    //
-    // Create semaphore object for counter sync
-    //
-    Semaphore_Params semParams;
-    Semaphore_Params_init(&semParams);
-    semParams.mode = Semaphore_Mode_COUNTING;
-    g_CounterSyncObj = Semaphore_create(0, &semParams, NULL);
-    //osi_SyncObjCreate(&g_CounterSyncObj);
-
-    UART_PRINT("Waiting for websocket connection. Connect to your mysimplelink-xxxxxx Access Point and navigate to mysimplelink.net/websocket_demo.html\n\r");
-
-    //
-    // Wait for first recv event to start counter
-    //
-    Semaphore_pend(g_CounterSyncObj, BIOS_WAIT_FOREVER);
-    //osi_SyncObjWait(&g_CounterSyncObj, OSI_WAIT_FOREVER);
-
-    //
-    // Start timer
-    // Value in msecs
-    //
-    //Timer_IF_Start(g_ulBase, TIMER_A, 1000);
-
-    UART_PRINT("Counter timer started\n\r");
-
-    while(1)
+    lRetVal = ConfigureSimpleLinkToDefaultState2();
+    if(lRetVal < 0)
     {
-        //
-        // Wait for timer interrupt
-        //
-        Semaphore_pend(g_CounterSyncObj, BIOS_WAIT_FOREVER);
-        //osi_SyncObjWait(&g_CounterSyncObj, OSI_WAIT_FOREVER);
+        //if (DEVICE_NOT_IN_STATION_MODE == lRetVal)
+        UART_PRINT("Failed to configure the device in its default state\n\r");
 
-        //
-        // Increase counter
-        //
-        g_ulTimerInts++;
-
-        //
-        // Send updated counter over websocket
-        //
-        Write.uLength = sizeof(g_ulTimerInts);
-        Write.pData = (UINT8 *)(&g_ulTimerInts);
-        if(!sl_WebSocketSend(g_uConnection, Write, Opcode))
-        {
-            UART_PRINT("Error: Cannot send websocket counter update\r\n");
-        }
-
-        //GPIO_IF_LedToggle(MCU_GREEN_LED_GPIO);
+        LOOP_FOREVER();
     }
+
+    UART_PRINT("Device is configured in default state \n\r");
+
+    //memset(g_ucSSID,'\0',AP_SSID_LEN_MAX);
+
+    //Read Device Mode Configuration
+    //ReadDeviceConfiguration();
+
+    //Connect to Network
+    lRetVal = ConnectToNetwork();
+
+	//Stop Internal HTTP Server
+	lRetVal = sl_NetAppStop(SL_NET_APP_HTTP_SERVER_ID);
+    if(lRetVal < 0)
+    {
+        ERR_PRINT(lRetVal);
+        LOOP_FOREVER();
+    }	
+
+    UART_PRINT("Start Websocket Server \n\r");
+
+    //
+	// Run application library HTTP Server
+    // Note this function does not return
+    //
+	HttpServerInitAndRun(NULL);
+
+	LOOP_FOREVER();
+
 }
 
 //*****************************************************************************

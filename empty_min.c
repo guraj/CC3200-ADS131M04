@@ -34,6 +34,7 @@
  *  ======== empty_min.c ========
  */
 /* Standard includes */
+#include <stdio.h>
 #include <string.h>
 
 /* XDCtools Header files */
@@ -72,6 +73,11 @@
 #include "uart.h"
 #include "interrupt.h"
 
+// HTTP lib includes
+#include "HttpCore.h"
+#include "HttpRequest.h"
+#include "WebSockHandler.h"
+
 // Driverlib includes: Utilities
 #include "utils.h"
 #include "prcm.h"
@@ -85,6 +91,7 @@
 #include "ads131m0x.h"   // Important methods defined in ads131m0x.c
 
 #include "httpserver_pinmux.h"
+#include "httpserverapp.h"
 
 //*****************************************************************************
 //                 DEFINITIONS FOR SPI SETTINGS
@@ -101,7 +108,7 @@
 //*****************************************************************************
 //                 TASK SETTINGS
 //*****************************************************************************
-#define TASKSTACKSIZE   512
+#define TASKSTACKSIZE   2048
 
 Task_Struct tsk0Struct;
 UInt8 tsk0Stack[TASKSTACKSIZE];
@@ -112,12 +119,6 @@ Task_Handle task;
 Task_Struct httpserver_tsk0Struct;
 UInt8 httpserver_tsk0Stack[OSI_STACK_SIZE];
 Task_Handle httpserver_task;
-void HTTPServerTask(UArg a0, UArg a1);
-
-Task_Struct counter_tsk0Struct;
-UInt8 counter_tsk0Stack[OSI_STACK_SIZE];
-Task_Handle counter_task;
-void CounterAppTask(UArg a0, UArg a1);
 
 Semaphore_Handle httpServerInitCompleteSemaphore;
 Semaphore_Struct structSem;
@@ -131,6 +132,9 @@ double channel0Signal;
 double channel1Signal;
 double channel2Signal;
 double channel3Signal;
+
+extern UINT16 g_uConnection;
+char data[32*4 + 4];
 
 //*****************************************************************************
 //                 VECTORS (Specific for compilers)
@@ -285,6 +289,7 @@ Void adcTask(UArg a0, UArg a1)
             if (interruptOccurred) {
                 // Clear interrupt flag
                 set_flag_nDRDY_INTERRUPT(false);
+                GPIO_IF_LedToggle(MCU_ORANGE_LED_GPIO);
 
                 // Read data from ADC
                 bool crcError = readData(&adcData);
@@ -299,6 +304,24 @@ Void adcTask(UArg a0, UArg a1)
                     channel1Signal = (double)adcData.channel1 * lsbWeight;
                     channel2Signal = (double)adcData.channel2 * lsbWeight;
                     channel3Signal = (double)adcData.channel3 * lsbWeight;
+
+                    struct HttpBlob Write;
+                    UINT8 Opcode = 0x01;
+
+                    Write.uLength = snprintf(data, sizeof(data), "%.16lf,%.16lf,%.16lf,%.16lf",
+                             channel0Signal, channel1Signal, channel2Signal, channel3Signal);
+                    Write.pData = (UINT8 *)data;
+
+
+                    //
+                    // Send updated counter over websocket
+                    //
+                    //Write.uLength = sizeof(adcData.channel0);
+                    //Write.pData = (UINT8 *)(&adcData.channel0);
+                    if(!sl_WebSocketSend(g_uConnection, Write, Opcode))
+                    {
+                        UART_PRINT("Error: Cannot send websocket counter update\r\n");
+                    }
                 }
 
             } else {
@@ -362,11 +385,11 @@ int main()
     InitADC();
 
     // Set up the ADC task
-    //Task_Params_init(&tskParams);
-    //tskParams.stackSize = TASKSTACKSIZE;
-    //tskParams.stack = &tsk0Stack;
-    //tskParams.arg0 = 1000;
-    //Task_construct(&tsk0Struct, (Task_FuncPtr)adcTask, &tskParams, NULL);
+    Task_Params_init(&tskParams);
+    tskParams.stackSize = TASKSTACKSIZE;
+    tskParams.stack = &tsk0Stack;
+    tskParams.arg0 = 1000;
+    Task_construct(&tsk0Struct, (Task_FuncPtr)adcTask, &tskParams, NULL);
 
 
     //
@@ -383,15 +406,8 @@ int main()
     Task_Params_init(&tskParams);
     tskParams.stackSize = OSI_STACK_SIZE;
     tskParams.stack = &httpserver_tsk0Stack;
-    tskParams.priority = 1;
-    Task_construct(&httpserver_tsk0Struct, (Task_FuncPtr)HTTPServerTask, &tskParams, NULL);
-
-    // Set up the Counter task
-    Task_Params_init(&tskParams);
-    tskParams.stackSize = OSI_STACK_SIZE;
-    tskParams.stack = &counter_tsk0Stack;
-    tskParams.priority = 3;
-    Task_construct(&counter_tsk0Struct, (Task_FuncPtr)CounterAppTask, &tskParams, NULL);
+    tskParams.priority = OOB_TASK_PRIORITY;
+    Task_construct(&httpserver_tsk0Struct, (Task_FuncPtr)HttpServerAppTask, &tskParams, NULL);
 
     // Launch the TI-RTOS kernel
     BIOS_start();

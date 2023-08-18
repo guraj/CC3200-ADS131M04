@@ -1,3 +1,4 @@
+#if 0
 //*****************************************************************************
 //
 // Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/ 
@@ -1210,3 +1211,4 @@ void httpserver_main()
     }
 #endif
 }
+#endif
